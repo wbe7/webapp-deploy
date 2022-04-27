@@ -7,4 +7,4 @@ version: 0.1.0 # версия ЧАРТА, обнуляется (0.1.0) с каж
 dependencies:
 - name: base
   version: 1.5.1
-  repository: "file://../charts/base"
+  repository: "file://./charts/base"
