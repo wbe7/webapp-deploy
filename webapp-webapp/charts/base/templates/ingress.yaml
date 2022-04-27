@@ -90,7 +90,7 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $env }}-{{ $name }}-svc
+                name: {{ $env }}-{{ $proj }}-svc-{{ $name }}
                 port:
                   number: {{ first $.Values.deployment.containerPort }}
               {{- else }}
