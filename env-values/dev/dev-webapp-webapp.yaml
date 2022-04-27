@@ -1,0 +1,5 @@
+base:
+  deployment:
+    enviroment:
+      - PORT: "8080"
+      - ENVIROMENT: "DEV"

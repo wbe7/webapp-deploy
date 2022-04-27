@@ -1,0 +1,49 @@
+{{- if .Values.cacertificate -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: ingress.gsi.tccenter.ru/v1alpha1
+kind: CACertificate
+metadata:
+  name: {{ $env }}-{{ $proj }}-cr-cacertificate
+  namespace: {{ $env }}-{{ $proj }}
+spec:
+  ingress:
+    hostnames:
+    - "{{ .Values.cacertificate.host | replace "ENV" $env }}"
+    {{- range .Values.cacertificate.aliases }}
+    - "{{ . }}"
+    {{- end }}
+    {{- if or (eq $env (index .Values.cacertificate.backendsenv 0)) (eq $env (index .Values.cacertificate.backendsenv 1)) }}
+    backend_paths:
+    {{- range .Values.cacertificate.backends }}
+    - backend:
+        serviceName: {{ $env }}-{{ $proj }}-{{ .serviceName }}
+        servicePort: {{ .servicePort }}
+        path: {{ .path }}
+    {{- end }}
+    {{- end }}
+    backend_service: svc-retail-api
+    backend_port: 80
+    server_certificate_secret_name: {{ $env }}-{{ $proj }}-ingress-tls
+    nginx_configuration_snippet: |
+      # Log format for retail-api
+      access_log /var/log/nginx/access.log upstreaminfo_client_certificate;
+      if ( $ssl_client_s_dn ~ "CN=(?<CN>[a-zA-Z0-9\s]*)" ) { set $ssl_client_s_dn_cn $CN; }
+      proxy_set_header   SSL_CLIENT_S_DN_CN   $ssl_client_s_dn_cn;
+      proxy_set_header   SSL_CLIENT_V_END     $ssl_client_v_end;
+      proxy_set_header   SSL_CLIENT_VERIFY    $ssl_client_verify;
+      set $tid $pid-$msec-$remote_addr-$request_length-$connection;
+      proxy_set_header   UNIQUE_ID            $tid;
+  git:
+    change_check_period: {{ .Values.cacertificate.git.changeCheckPeriod }}
+    repository: {{ .Values.cacertificate.git.repository }}
+    server_public_key: {{ .Values.cacertificate.git.serverPublicKey }}
+    user: {{ .Values.cacertificate.git.user }}
+    user_private_key: {{ if hasPrefix "VAULT:" .Values.cacertificate.git.userPrivateKey }}{{ .Values.cacertificate.git.userPrivateKey }}{{ else }}|
+      {{- .Values.cacertificate.git.userPrivateKey | nindent 6 }}{{ end }}
+    branch: {{ .Values.cacertificate.git.branch }}
+    env: {{ $env }}
+    cert_base_path: {{ .Values.cacertificate.git.certBasePath }}
+    cert_extention: {{ .Values.cacertificate.git.certExtention }}
+{{- end }}

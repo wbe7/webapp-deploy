@@ -1,0 +1,17 @@
+{{- if .Values.pvc -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $env }}-{{ $proj }}-pvc
+  namespace: {{ $env }}-{{ $proj }}
+spec:
+  storageClassName: {{ .Values.pvc.storageClassName }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.pvc.storage }}
+{{- end }}

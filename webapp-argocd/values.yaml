@@ -1,0 +1,14 @@
+base:
+
+  chartName: "webapp"
+
+  argocd:
+    telegram: "CHANGEME" # id телеграм чата
+    repo: # список гит реп
+      - repoLink: "https://github.com/wbe7/webapp-deploy.git" # ссылка на репу
+        path: webapp
+        repoApps: # список приложений
+          - name: webapp
+            valuesFiles:
+              env: true # env_values/env/env-proj.yaml
+              ver: true # module_version.yaml
