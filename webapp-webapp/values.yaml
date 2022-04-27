@@ -4,10 +4,9 @@ base:
   hashicorpv1: true
 
   deployment:
-    replicas: 1
+    replicas: 5
     revisionHistoryLimit: 2
-	  imagePath: mayatih/webapp
-	
+    imagePath: mayatih/webapp
     containerPort:
       - "8080"     
 
