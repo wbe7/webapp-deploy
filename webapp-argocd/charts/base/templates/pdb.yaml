@@ -1,5 +1,5 @@
 {{- if .Values.deployment }}
-{{- if gt .Values.deployment.replicaCount 1.0 }}
+{{- if gt .Values.deployment.replicas 1.0 }}
 {{- $env := include "base.env" . -}}
 {{- $proj := include "base.proj" . -}}
 {{- $name := include "base.name" . -}}

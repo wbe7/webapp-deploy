@@ -101,6 +101,7 @@ spec:
         {{- end }}
         {{- end }}
         {{- end }}
+        {{- if .Values.deployment.resources }}
         resources:
           requests:
             cpu: {{ .Values.deployment.resources.requests.cpu }}
@@ -108,6 +109,7 @@ spec:
           limits:
             cpu: {{ .Values.deployment.resources.limits.cpu }}
             memory: {{ .Values.deployment.resources.limits.memory }}
+        {{- end }}
         {{- if .Values.deployment.lifecycle }}
         lifecycle:
           {{- if .Values.deployment.lifecycle.postStart }}
@@ -150,7 +152,7 @@ spec:
           periodSeconds: {{ .Values.deployment.livenessProbe.periodSeconds }}
           failureThreshold: {{ .Values.deployment.livenessProbe.failureThreshold }}
         {{- end }}
-      {{- if gt .Values.deployment.replicaCount 1.0 }}
+      {{- if gt .Values.deployment.replicas 1.0 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
