@@ -1,0 +1,102 @@
+{{- if .Values.ingress.hosts -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+{{- range .Values.ingress.hosts }}
+{{ printf "\n" }}
+---
+{{- if and $.Values.ingress.className (not (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey $.Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" $.Values.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" $.Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $env }}-{{ $proj }}-ingress-tls
+  namespace: {{ $env }}-{{ $proj }}
+  annotations:
+    {{- range $key, $value := $.Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- if $.Values.ingress.stickySession }}
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: {{ $.Values.ingress.stickySession.name | quote }}
+    nginx.ingress.kubernetes.io/session-cookie-max-age: {{ $.Values.ingress.stickySession.maxage | quote }}
+    nginx.ingress.kubernetes.io/session-cookie-path: "/"
+    {{- end }}
+    {{- if .aliases }}
+    nginx.ingress.kubernetes.io/server-alias: "{{ join "," .aliases }}"
+    {{- if $.Values.ingress.tlsAuth }}
+    nginx.ingress.kubernetes.io/auth-tls-secret: {{ $env }}-{{ $proj }}/{{ $env }}-{{ $proj }}-ingress-auth-tls
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    {{- end }}
+    {{- end }}
+    {{- if $.Values.ingress.basicAuth }}
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: {{ $env }}-{{ $proj }}-ingress-auth-basic
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+    {{- end }}
+    {{- if $.Values.ingress.fcgi }}
+    nginx.ingress.kubernetes.io/backend-protocol: "FCGI"
+    nginx.ingress.kubernetes.io/fastcgi-params-configmap: "{{ $env }}-{{ $proj }}-configmap-{{ $name }}"
+    {{- end }}
+    {{- if or $.Values.ingress.tlsAuth $.Values.ingress.basicAuth $.Values.ingress.cache }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+    {{- if $.Values.ingress.tlsAuth }}
+      {{- include "gsilib.access_by_lua_block" $.Values.ingress.tlsAuth.certs | nindent 6 }}
+      if ( $ssl_client_s_dn ~ "CN=(?<CN>[^/,\"]+)" ) {
+        set $ssl_client_s_dn_cn $CN;
+      }
+    {{- end }}
+    {{- if and $.Values.ingress.tlsAuth (not $.Values.ingress.basicAuth) }}
+      proxy_set_header SSL_CLIENT_S_DN_CN   $ssl_client_s_dn_cn;
+    {{- end }}
+    {{- if and $.Values.ingress.basicAuth (not $.Values.ingress.tlsAuth) }}
+      proxy_set_header Ingress-Auth-User $remote_user;
+    {{- end }}
+    {{- if $.Values.ingress.cache }}
+      proxy_cache {{ $.Values.ingress.cache.cacheTime }};
+      proxy_cache_valid 200 301 302 304 1M;
+      proxy_cache_valid any 0;
+      add_header X-Cache-Status $upstream_cache_status;
+    {{- end }}
+    {{- end }}
+spec:
+  {{- if and $.Values.ingress.className (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ $.Values.ingress.className }}
+  {{- end }}
+  {{- if $.Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .host | replace "ENV" $env | quote }}
+      secretName: {{ $env }}-{{ $proj }}-ingress-tls-{{ .host | replace "ENV" $env | replace "." "-" }}
+  {{- end }}
+  rules:
+    - host: {{ .host | replace "ENV" $env | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType | default "ImplementationSpecific" }}
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $env }}-{{ $name }}-svc
+                port:
+                  number: {{ first $.Values.deployment.containerPort }}
+              {{- else }}
+              serviceName: {{ $env }}-{{ $name }}-svc
+              servicePort: {{ first $.Values.deployment.containerPort }}
+              {{- end }}
+          {{- end }}
+{{- end }}
+{{ end }}

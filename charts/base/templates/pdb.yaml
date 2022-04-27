@@ -1,0 +1,20 @@
+{{- if .Values.deployment }}
+{{- if gt .Values.deployment.replicaCount 1.0 }}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-{{ $env }}-{{ $proj }}-{{ $name }}
+  namespace: {{ $env }}-{{ $proj }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $proj }}-{{ $name }}
+  minAvailable: 1
+{{- if .Values.deployment.pdb }}
+  maxUnavailable: {{ .Values.deployment.pdb.maxUnavailable }}
+{{- end }}
+{{- end }}
+{{- end }}

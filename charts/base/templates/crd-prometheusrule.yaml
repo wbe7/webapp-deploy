@@ -1,0 +1,32 @@
+{{- if .Values.prometheus -}}
+{{- if .Values.prometheus.rule -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $env }}-{{ $proj }}-alerts  # имя PrometheusRule как сущности k8s (по имени сущности формируется вторая часть имени конфигфайла для prometheus)
+  namespace: {{ $env }}-{{ $proj }}    # неймспейс проекта (по имени неймспейса формируется первая часть имени конфигфайла для prometheus)
+  labels:
+    monitoring: prometheus     # по заданному lable Prometheus-operator находит PrometheusRule (ОБЯЗАТЕЛЬНЫЙ ЛЕЙБЛ, ПО НЕМУ OPERATOR ИЩЕТ PrometheusRule!)
+spec:
+  groups:
+  - name: {{ cat $env $proj | camelcase }}    # имя группы, в которой будут находится алерты
+    rules:                # перечисление создаваемых алертов для группы
+    {{- range .Values.prometheus.rule.alerts }}
+    - alert: {{ .alertname }}   # имя алерта
+      expr: {{ .expr }}       # квери формата PromQL по вхождениям которой будет осуществляться оповещение
+      for: {{ .for }}            # временной интервал, в течении которого должно быть ненулевое вхождение в квери, после которого произойдет оповещение
+      annotations:
+        summary: {{ .summary }}  # заголовок сообщения
+        description: {{ .desc }}  # тело оповещения, в которое можно добавить различную информацию, например лейблы из вхождения или значение квери
+      labels:                   # список добавляемых к алерту лейблов, по которым будет осуществляться дальнейший роутинг по необходимым каналам оповещения и т.п.
+        severity: {{ .severity }}          # важность оповещения (test,info,warning,high,critical)
+        telegram: {{ .reciver }}       # ресивер телеграма, добавленый в конфиг алертменеджера (задается в helm-чарте оператора, а не в PrometheusRule)
+        mail: {{ .reciver }}           # ресивер почты, добавленый в конфиг алертменеджера (задается в helm-чарте оператора, а не в PrometheusRule)
+        #opsgenie_team: monitoring  # ресивер opsgenie, добавленый в конфиг алертменеджера (задается в helm-чарте оператора, а не в PrometheusRule)
+        application: {{ .app }}    # продукт, к которому принадлежит алерт
+    {{ end }}
+{{ end }}
+{{ end }}

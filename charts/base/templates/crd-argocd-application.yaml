@@ -1,0 +1,67 @@
+{{- if .Values.argocd -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- range .Values.argocd.repo }}
+{{- $repolink := .repoLink }}
+{{- $path := .path | default $proj }}
+{{- range .repoApps }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $env }}-{{ $proj }}-{{ .name }}
+  namespace: {{ $env }}-{{ $proj }}
+  annotations:
+    notifications.argoproj.io/subscribe.on-helm-sync-ended.telegram: {{ $.Values.argocd.telegram | quote }}
+    {{- if .annotations }}
+    {{- range .annotations.trigger }}
+    {{- if ne . "on-helm-sync-ended" }}
+    notifications.argoproj.io/subscribe.{{ . }}.telegram: {{ $.Values.argocd.telegram | quote }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+spec:
+  project: {{ $env }}-{{ $proj }}
+{{- if ne $env "prod" }}
+  syncPolicy:
+    automated:
+      selfHeal: true
+{{- end }}
+  source:
+    repoURL: {{ $repolink | squote }}
+    path: {{ $path }}-{{ .name }}
+    {{- if ne $env "prod" }}
+    targetRevision: {{ $env | upper }}
+    {{- else }}
+    targetRevision: master
+    {{- end }}
+    {{- if .valuesFiles }}
+    helm:
+      valueFiles:
+        - values.yaml
+        {{- if .valuesFiles.config }}
+        - configs.yaml
+        {{- end }}
+        {{- if .valuesFiles.secrets }}
+        - secrets.yaml
+        {{- end }}
+        {{- if .valuesFiles.env }}
+        - ../env_values/{{ $env }}/{{ $env }}-{{ $path }}.yaml
+        {{- end }}
+        {{- if .valuesFiles.ver }}
+        - module_version.yaml
+        {{- end }}
+        {{- if .valuesFiles.conf }}
+        - config.yaml
+        {{- end }}
+    {{- else }}
+    helm:
+      valueFiles:
+        - values.yaml
+    {{- end }}
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: {{ $env }}-{{ $proj }}
+{{- end }}
+{{- end }}
+{{- end }}
