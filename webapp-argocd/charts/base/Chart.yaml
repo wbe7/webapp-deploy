@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0"
+description: base chart
+kubeVersion: '>= 1.18.0-0'
+name: base
+version: 1.5.1

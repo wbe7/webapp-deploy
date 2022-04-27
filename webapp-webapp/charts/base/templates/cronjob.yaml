@@ -1,0 +1,120 @@
+{{- if .Values.cronjob -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: "{{ $env }}-{{ $proj }}-{{ $name }}"
+  namespace: {{ $env }}-{{ $proj }}
+spec:
+  schedule: "{{ .Values.cronjob.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: {{ $proj }}-{{ $name }}
+          annotations:
+            {{- if .Values.cronjob.hashicorp }}
+            vault.hashicorp.com/agent-inject: "true"
+            vault.hashicorp.com/agent-limits-cpu: "250m"
+            vault.hashicorp.com/agent-limits-mem: "64Mi"
+            vault.hashicorp.com/agent-requests-cpu : "50m"
+            vault.hashicorp.com/agent-requests-mem : "64Mi"
+            vault.hashicorp.com/agent-pre-populate-only : "true"
+            vault.hashicorp.com/agent-inject-secret-database: "{{ $proj }}/{{ $env }}/values"
+            vault.hashicorp.com/role: "{{ $env }}-{{ $proj }}"
+            vault.hashicorp.com/ca-cert: "/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+            vault.hashicorp.com/agent-inject-template-database: |
+              {{`{{ with secret "`}}{{ $proj }}/{{ $env }}{{`/values" }} `}}
+                {{- range $k, $v := .Values.cronjob.hashicorp }}
+                {{- range $varname, $varvalue := $v }}
+                export {{ $varname }}{{`="{{ .Data.`}}{{ $varvalue }}{{`  }}"`}}
+                {{- end }}
+                {{- end }}`
+              {{`{{- end }}`}}
+            {{- end }}
+        spec:
+          imagePullSecrets:
+            - name: regcred
+          containers:
+          - name: {{ .Chart.Name }}
+            image: "{{ .Values.cronjob.imagePath }}:{{ .Values.module_version }}"
+            command: ["{{ .Values.cronjob.command }}"]
+            {{- if or .Values.cronjob.commandArgs }}
+            args:
+              {{- range $k, $v := .Values.cronjob.commandArgs }}
+              - {{ $v | quote }}
+              {{- end }}
+            {{- end }}
+            ports:
+            {{- range $k, $v := .Values.cronjob.containerPort }}
+            - containerPort: {{ $v }}
+            {{- end }}
+            {{- if or .Values.cronjob.volumes .Values.cronjob.pvc }}
+            volumeMounts:
+            {{- if .Values.cronjob.volumes }}
+            {{- range .Values.cronjob.volumes }}
+            - name: {{ .volumeName | replace "ENV" $env }}
+              mountPath: {{ .mountPath }}
+              {{- if .subPath }}
+              subPath: {{ .subPath }}
+              {{- end }}
+              {{- if .readOnly }}
+              readOnly: true
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            env:
+            {{- if .Values.cronjob.environments }}
+            {{- range $k, $v := .Values.cronjob.environments }}
+            {{- range $envname, $envvalue := $v }}
+            - name: {{ $envname }}
+              value: {{ $envvalue | replace "ENVT" $env | quote}}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            resources:
+              requests:
+                cpu: {{ .Values.cronjob.resources.requests.cpu }}
+                memory: {{ .Values.cronjob.resources.requests.memory }}
+              limits:
+                cpu: {{ .Values.cronjob.resources.limits.cpu }}
+                memory: {{ .Values.cronjob.resources.limits.memory }}
+          restartPolicy: OnFailure
+          {{- if or .Values.cronjob.volumes .Values.cronjob.pvc }}
+          volumes:
+            {{- if .Values.cronjob.volumes }}
+            {{- range .Values.cronjob.volumes }}
+            - name: {{ .volumeName | replace "ENV" $env }}
+              {{- if eq .volumeType "emptyDir" }}
+              {{ `emptyDir: {}` }}
+              {{- else }}
+              {{ .volumeType }}:
+              {{- end }}
+                {{- if eq .volumeType "configMap" }}
+                name: {{ .name | replace "APACHE" $name }}
+                {{- end }}
+                {{- if eq .volumeType "secret" }}
+                secretName: {{ .name | replace "APACHE" $name }}
+                {{- end }}
+                {{- if eq .volumeType "persistentVolumeClaim" }}
+                secretName: {{ .name | replace "ENV" $env }}
+                {{- end }}
+                {{- if .items }}
+                items:
+                {{- range .items }}
+                - key: {{ .key }}
+                  path: {{ .path }}
+                {{- end }}
+                {{- end }}
+                {{- if eq .volumeType "hostPath" }}
+                path: {{ .mountPath }}
+                type: {{ .hostPathType }}
+                {{- end }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+{{- end }}

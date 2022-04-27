@@ -1,0 +1,39 @@
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+
+{{- if .Values.deployment -}}
+{{- range .Values.deployment.volumes }}
+{{- if eq .volumeType "configMap" -}}
+{{ printf "\n" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $env }}-{{ $proj }}-{{ .name | replace "APACHE" $name | replace "ENV" $env | replace "." "-" }}
+  namespace: {{ $env }}-{{ $proj }}
+data:
+  {{- range .items }}
+  {{ $itemskey := .key }}
+  {{- range $.Values.configs }}
+  {{- if eq $itemskey .configname -}}
+  {{ .configname | replace "ENV" $env }}: {{ tpl (.configbody) $ | toYaml | indent 2 }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.ingress.fcgi -}}
+{{ printf "\n" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $env }}-{{ $proj }}-configmap-{{ $name }}
+  namespace: {{ $env }}-{{ $proj }}
+data:
+  DOCUMENT_ROOT: {{ .Values.ingress.fcgi.path | quote }}
+  SCRIPT_FILENAME: $document_root$fastcgi_script_name
+{{- end }}

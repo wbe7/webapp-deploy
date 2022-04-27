@@ -1,0 +1,56 @@
+{{- if or .Values.service .Values.deployment -}}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+
+{{- if .Values.deployment }}
+{{- if eq (len .Values.deployment.containerPort) 2 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $env }}-{{ $proj }}-pull-metrics-svc-{{ $name }}
+  namespace: {{ $env }}-{{ $proj }}
+  labels:
+    monitoring: {{ $env }}-{{ $proj }}-prometheus-pull-{{ $name }}
+spec:
+  ports:
+    - name: metrics
+      port: {{ index $.Values.deployment.containerPort 1 }}
+      targetPort: {{ index $.Values.deployment.containerPort 1 }}
+      protocol: TCP
+  selector:
+    app: {{ $proj }}-{{ $name }}
+{{- end }}
+{{- end }}
+
+{{- if or .Values.service .Values.deployment }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $env }}-{{ $proj }}-svc-{{ $name }}
+  namespace: {{ $env }}-{{ $proj }}
+  labels:
+    app: {{ $proj }}-{{ $name }}
+spec:
+  ports:
+    - name: {{ $name }}
+      {{- if and .Values.service (not .Values.deployment) }}
+      port: {{ .Values.service.port }}
+      targetPort: {{  default .Values.service.port }}
+      {{- else }}
+      port: {{ first $.Values.deployment.containerPort }}
+      targetPort: {{ first $.Values.deployment.containerPort }}
+      {{- end }}
+      protocol: TCP
+  selector:
+    app: {{ $proj }}-{{ $name }}
+  {{ if .Values.service }}
+  {{- if .Values.service.externalName -}}
+  type: {{ .Values.service.type }}
+  externalName: {{ .Values.service.externalName }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

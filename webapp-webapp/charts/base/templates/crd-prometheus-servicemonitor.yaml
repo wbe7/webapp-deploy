@@ -1,0 +1,28 @@
+{{- if .Values.deployment }}
+{{- if eq (len .Values.deployment.containerPort) 2 }}
+{{- $env := include "base.env" . -}}
+{{- $proj := include "base.proj" . -}}
+{{- $name := include "base.name" . -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    monitoring: prometheus
+  name: {{ $env }}-{{ $proj }}-pull-metrics-servicemonitor-{{ $name }}
+  namespace: {{ $env }}-{{ $proj }}
+spec:
+  endpoints:
+  - path: {{ .Values.prometheus.serviceMonitorPath }}
+    port: {{ index $.Values.deployment.containerPort 1 | quote }}
+    relabelings:
+    - sourceLabels:
+      - __meta_kubernetes_endpoint_node_name
+      targetLabel: node
+  namespaceSelector:
+    matchNames:
+    - {{ $env }}-{{ $proj }}
+  selector:
+    matchLabels:
+      monitoring: {{ $env }}-{{ $proj }}-prometheus-pull-{{ $name }}
+{{- end }}
+{{- end }}
