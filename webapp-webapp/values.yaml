@@ -19,4 +19,5 @@ base:
         ca: le # включаем CEM для этого хоста, может быть cem - серт от orglot.office, external - сгенерированный вручную или полученый от внешнего центра сертификации, le - серт от letsencrypt
         paths:
           - path: /
+            pathType: Prefix
 
