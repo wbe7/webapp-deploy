@@ -15,7 +15,7 @@ base:
       kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
     hosts:
-      - host: ENV-webapp.stoloto.su
+      - host: ENV-webapp.cloudnative.space
         ca: le # включаем CEM для этого хоста, может быть cem - серт от orglot.office, external - сгенерированный вручную или полученый от внешнего центра сертификации, le - серт от letsencrypt
         paths:
           - path: /
