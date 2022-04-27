@@ -94,7 +94,7 @@ spec:
                 port:
                   number: {{ first $.Values.deployment.containerPort }}
               {{- else }}
-              serviceName: {{ $env }}-{{ $name }}-svc
+              serviceName: {{ $env }}-{{ $proj }}-svc-{{ $name }}
               servicePort: {{ first $.Values.deployment.containerPort }}
               {{- end }}
           {{- end }}
